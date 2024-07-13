@@ -1,48 +1,43 @@
-from dotenv import load_dotenv
-import os
-
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
+from flask_jwt_extended import JWTManager
 from marshmallow.exceptions import ValidationError
-
-db = SQLAlchemy()
-ma = Marshmallow()
-
-load_dotenv()
+from .extensions import db, ma, jwt
 
 def create_app():
     app = Flask(__name__)
     
-    # Configuration settings
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+    # Load configuration
+    app.config.from_object('config.Config')
 
+    # Initialize extensions
     db.init_app(app)
     ma.init_app(app)
+    jwt.init_app(app)
 
-    from .routes import user_routes, dog_routes, recipe_routes, ingredient_routes, shopping_list_routes, search_routes
+    # Import and register blueprints
+    from .routes import user_routes, dog_routes, recipe_routes, ingredient_routes, shopping_list_routes, search_routes, auth_routes
     app.register_blueprint(user_routes.bp)
     app.register_blueprint(dog_routes.bp)
     app.register_blueprint(recipe_routes.bp)
     app.register_blueprint(ingredient_routes.bp)
     app.register_blueprint(shopping_list_routes.bp)
     app.register_blueprint(search_routes.bp)
+    app.register_blueprint(auth_routes.bp)
     
+    # Register CLI commands
+    from .controllers.cli_controller import db_commands
+    app.register_blueprint(db_commands)
+
+    # Error handler for ValidationError
     @app.errorhandler(ValidationError)
     def validation_error(err):
         return {"error": err.messages}, 400
-    
-    # Import the controllers
-    from controllers.cli_controller import db_commands
-    app.register_blueprint(db_commands)
-    
-    from controllers.auth_controller import auth_bp
-    app.register_blueprint(auth_bp)
-    
-    from controllers.card_controller import cards_bp
-    app.register_blueprint(cards_bp)
 
+    # Create AuthService instance
+    from .services.AuthService import AuthService
+    auth_service = AuthService()
+    app.auth_service = auth_service
+    
     return app
