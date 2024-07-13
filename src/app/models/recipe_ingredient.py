@@ -8,8 +8,8 @@ class RecipeIngredient(db.Model):
     unit = db.Column(db.String(20), nullable=False)
 
     # Relationships
-    recipe = db.relationship('Recipe', back_populates='ingredients', cascade="all, delete-orphan")
-    ingredient = db.relationship('Ingredient', back_populates='recipes', cascade="all, delete-orphan")
+    recipe = db.relationship('Recipe', back_populates='ingredients')
+    ingredient = db.relationship('Ingredient', back_populates='recipe_ingredients')
 
     def __repr__(self):
         return f'<RecipeIngredient {self.recipe_id}:{self.ingredient_id}>'

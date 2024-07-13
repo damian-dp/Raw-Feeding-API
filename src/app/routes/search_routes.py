@@ -2,8 +2,8 @@ from flask import Blueprint, request, jsonify
 from app.models.recipe import Recipe
 from app.models.user import User
 from app.models.ingredient import Ingredient
-from app.schemas.recipe_schema import recipes_schema
-from app.schemas.ingredient_schema import ingredients_schema
+from ..schemas.recipe_schema import recipes_schema 
+from ..schemas.ingredient_schema import ingredients_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 bp = Blueprint('search', __name__, url_prefix='/search')

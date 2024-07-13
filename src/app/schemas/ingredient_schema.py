@@ -1,5 +1,5 @@
-from app import ma
-from app.models.ingredient import Ingredient
+from ..extensions import ma
+from ..models.ingredient import Ingredient
 
 class IngredientSchema(ma.SQLAlchemyAutoSchema):
     class Meta:

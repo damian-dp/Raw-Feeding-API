@@ -4,6 +4,7 @@ from flask_marshmallow import Marshmallow
 from flask_jwt_extended import JWTManager
 from marshmallow.exceptions import ValidationError
 from .extensions import db, ma, jwt
+from .models import User, Dog, Recipe, Ingredient, RecipeIngredient
 
 def create_app():
     app = Flask(__name__)

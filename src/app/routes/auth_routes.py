@@ -5,6 +5,24 @@ bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 @bp.route('/login', methods=['POST'])
 def login():
+    """
+    Example JSON request:
+    {
+        "username": "example_user",
+        "password": "secure_password123"
+    }
+
+    Expected successful response:
+    {
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    }
+
+    Expected error response:
+    {
+        "error": "Invalid credentials"
+    }
+    """
     username = request.json.get('username')
     password = request.json.get('password')
     

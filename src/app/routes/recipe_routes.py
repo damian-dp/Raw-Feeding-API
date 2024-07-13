@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from app import db
 from app.models.recipe import Recipe
 from app.models.recipe_ingredient import RecipeIngredient
-from app.schemas.recipe_schema import recipe_schema, recipes_schema
+from ..schemas.recipe_schema import recipe_schema, recipes_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils.validators import validate_recipe_name, validate_quantity, validate_ingredient_name
 from app.models.user import User
@@ -90,7 +90,7 @@ def get_recipe(recipe_id):
             "message": "You do not have permission to view this recipe. You can only view your own recipes or public recipes."
         }), 403
 
-@@bp.route('/<int:recipe_id>', methods=['PUT', 'PATCH'])
+@bp.route('/<int:recipe_id>', methods=['PUT', 'PATCH'])
 @jwt_required()
 def update_recipe(recipe_id):
     current_user_id = get_jwt_identity()

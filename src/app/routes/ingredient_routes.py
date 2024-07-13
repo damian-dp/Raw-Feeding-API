@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 from app.models.ingredient import Ingredient
-from app.schemas.ingredient_schema import ingredient_schema, ingredients_schema
+from ..schemas.ingredient_schema import ingredient_schema, ingredients_schema
 
 bp = Blueprint('ingredients', __name__, url_prefix='/ingredients')
 

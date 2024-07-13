@@ -1,10 +1,11 @@
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models.dog import Dog
-from app.schemas.dog_schema import dog_schema, dogs_schema
+from ..schemas.dog_schema import dog_schema, dogs_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils.validators import validate_date_of_birth, validate_weight
 from app.models.user import User
+
 
 bp = Blueprint('dogs', __name__, url_prefix='/dogs')
 

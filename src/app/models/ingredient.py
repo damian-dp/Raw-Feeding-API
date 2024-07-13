@@ -13,4 +13,4 @@ class Ingredient(db.Model):
     minerals = db.Column(db.JSON)
 
     # Relationships
-    recipes = db.relationship('RecipeIngredient', back_populates='ingredient', cascade="all, delete-orphan")
+    recipe_ingredients = db.relationship('RecipeIngredient', back_populates='ingredient', cascade="all, delete-orphan")

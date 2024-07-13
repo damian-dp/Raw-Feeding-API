@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify, current_app
 from app import db
 from app.models.user import User
-from app.schemas.user_schema import user_schema, users_schema
+from ..schemas.user_schema import user_schema, users_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
 from app.utils.validators import validate_email, validate_password, validate_username
+import sqlalchemy
 
 bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -13,17 +14,6 @@ def create_user():
     email = request.json['email']
     password = request.json['password']
     is_admin = False
-
-    # Check if there's a valid JWT token (user is logged in)
-    try:
-        verify_jwt_in_request(optional=True)
-        current_user_id = get_jwt_identity()
-        if current_user_id:
-            current_user = User.query.get(current_user_id)
-            if current_user and current_user.is_admin:
-                is_admin = request.json.get('is_admin', False)
-    except:
-        pass
 
     if not validate_username(username):
         return jsonify({
@@ -40,23 +30,44 @@ def create_user():
 
     try:
         new_user = current_app.auth_service.register_user(username, email, password)
-        new_user.is_admin = is_admin  # Set the is_admin flag after registration
-        current_app.db.session.commit()  # Commit the change to is_admin
+        new_user.is_admin = is_admin
+        db.session.commit()
         return user_schema.jsonify(new_user), 201
+    except sqlalchemy.exc.IntegrityError as e:
+        db.session.rollback()
+        if 'ix_user_email' in str(e):
+            return jsonify({"error": "A user with this email already exists."}), 400
+        elif 'ix_user_username' in str(e):
+            return jsonify({"error": "A user with this username already exists."}), 400
+        else:
+            return jsonify({"error": "An error occurred while creating the user."}), 400
     except Exception as e:
+        db.session.rollback()
         return jsonify({"error": str(e)}), 400
 
 @bp.route('/', methods=['GET'])
 @jwt_required()
 def get_users():
-    users = User.query.all()
-    return users_schema.jsonify(users)
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get_or_404(current_user_id)
+    
+    if current_user.is_admin:
+        users = User.query.all()
+        return users_schema.jsonify(users)
+    else:
+        return user_schema.jsonify(current_user)
 
 @bp.route('/<int:user_id>', methods=['GET'])
 @jwt_required()
 def get_user(user_id):
-    user = User.query.get_or_404(user_id)
-    return user_schema.jsonify(user)
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get_or_404(current_user_id)
+    
+    if current_user.is_admin or current_user.id == user_id:
+        user = User.query.get_or_404(user_id)
+        return user_schema.jsonify(user)
+    else:
+        return jsonify({"error": "Unauthorized. You can only view your own profile."}), 403
 
 @bp.route('/<int:user_id>', methods=['PUT', 'PATCH'])
 @jwt_required()
