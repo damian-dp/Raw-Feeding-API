@@ -6,6 +6,8 @@ from ..schemas.recipe_schema import recipe_schema, recipes_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils.validators import validate_recipe_name, validate_quantity, validate_ingredient_name
 from app.models.user import User
+from app.models.dog import Dog
+from app.models.ingredient import Ingredient
 
 bp = Blueprint('recipes', __name__, url_prefix='/recipes')
 
@@ -13,11 +15,18 @@ bp = Blueprint('recipes', __name__, url_prefix='/recipes')
 @jwt_required()
 def create_recipe():
     user_id = get_jwt_identity()
+    current_user = User.query.get_or_404(user_id)
     name = request.json['name']
     description = request.json.get('description')
     instructions = request.json['instructions']
     is_public = request.json.get('is_public', False)
     ingredients = request.json['ingredients']
+    dog_ids = request.json.get('dog_ids', [])
+
+    if not dog_ids:
+        return jsonify({
+            "error": "At least one dog must be associated with the recipe."
+        }), 400
 
     if not validate_recipe_name(name):
         return jsonify({
@@ -54,6 +63,14 @@ def create_recipe():
             unit=unit
         )
         new_recipe.ingredients.append(recipe_ingredient)
+
+    for dog_id in dog_ids:
+        dog = Dog.query.get(dog_id)
+        if not dog:
+            return jsonify({"error": f"Dog with id {dog_id} not found"}), 400
+        if not current_user.is_admin and dog.user_id != user_id:
+            return jsonify({"error": f"You don't have permission to assign dog with id {dog_id} to this recipe"}), 403
+        new_recipe.dogs.append(dog)
 
     db.session.add(new_recipe)
     db.session.commit()
@@ -147,9 +164,25 @@ def update_recipe(recipe_id):
             )
             recipe.ingredients.append(recipe_ingredient)
 
+    if 'dog_ids' in request.json:
+        # Remove existing dog associations
+        recipe.dogs = []
+        # Add new dog associations
+        for dog_id in request.json['dog_ids']:
+            dog = Dog.query.get(dog_id)
+            if not dog:
+                return jsonify({"error": f"Dog with id {dog_id} not found"}), 400
+            if not current_user.is_admin and dog.user_id != current_user_id:
+                return jsonify({"error": f"You don't have permission to assign dog with id {dog_id} to this recipe"}), 403
+            recipe.dogs.append(dog)
+    # If no dog_ids are provided, keep the existing associations
+
     db.session.commit()
 
-    return recipe_schema.jsonify(recipe)
+    # Refresh the recipe object to ensure all relationships are up-to-date
+    db.session.refresh(recipe)
+
+    return recipe_schema.jsonify(recipe), 200
 
 @bp.route('/<int:recipe_id>', methods=['DELETE'])
 @jwt_required()

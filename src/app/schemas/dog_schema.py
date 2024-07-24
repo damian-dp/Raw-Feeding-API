@@ -5,6 +5,7 @@ class DogSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Dog
         load_instance = True
+        recipes = ma.List(ma.Integer())
         include_fk = True
 
 dog_schema = DogSchema()

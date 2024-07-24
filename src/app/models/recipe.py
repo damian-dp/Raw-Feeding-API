@@ -26,3 +26,7 @@ class Recipe(db.Model):
     @property
     def total_fat(self):
         return sum(ri.ingredient.fat * ri.quantity for ri in self.ingredients)
+
+    @property
+    def dog_ids(self):
+        return [dog.id for dog in self.dogs]

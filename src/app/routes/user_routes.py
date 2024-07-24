@@ -5,6 +5,7 @@ from ..schemas.user_schema import user_schema, users_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
 from app.utils.validators import validate_email, validate_password, validate_username
 import sqlalchemy
+from app.models.dog import Dog
 
 bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -51,11 +52,25 @@ def get_users():
     current_user_id = get_jwt_identity()
     current_user = User.query.get_or_404(current_user_id)
     
+    include_dogs = request.args.get('include_dogs', 'false').lower() == 'true'
+    include_recipes = request.args.get('include_recipes', 'false').lower() == 'true'
+    
     if current_user.is_admin:
         users = User.query.all()
-        return users_schema.jsonify(users)
+        result = users_schema.dump(users)
+        for user, user_data in zip(users, result):
+            if include_dogs:
+                user_data['dog_ids'] = [dog.id for dog in user.dogs]
+            if include_recipes:
+                user_data['recipe_ids'] = [recipe.id for recipe in user.recipes]
+        return jsonify(result)
     else:
-        return user_schema.jsonify(current_user)
+        result = user_schema.dump(current_user)
+        if include_dogs:
+            result['dog_ids'] = [dog.id for dog in current_user.dogs]
+        if include_recipes:
+            result['recipe_ids'] = [recipe.id for recipe in current_user.recipes]
+        return jsonify(result)
 
 @bp.route('/<int:user_id>', methods=['GET'])
 @jwt_required()

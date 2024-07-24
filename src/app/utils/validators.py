@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import datetime, date
 
 def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
@@ -16,12 +16,21 @@ def validate_username(username):
     pattern = r'^[a-zA-Z0-9_]{3,20}$'
     return re.match(pattern, username) is not None
 
-def validate_date_of_birth(date_string):
+def validate_date_of_birth(date_input):
     try:
-        datetime.strptime(date_string, '%Y-%m-%d')
-        return True
+        if isinstance(date_input, str):
+            dob = datetime.strptime(date_input, '%Y-%m-%d').date()
+        elif isinstance(date_input, datetime):
+            dob = date_input.date()
+        else:
+            dob = date_input
+        
+        today = date.today()
+        if dob > today:
+            return False, "Date of birth cannot be in the future"
+        return True, None
     except ValueError:
-        return False
+        return False, "Invalid date format. Please use YYYY-MM-DD"
 
 def validate_weight(weight):
     try:
