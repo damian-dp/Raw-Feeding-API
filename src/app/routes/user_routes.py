@@ -50,9 +50,17 @@ def get_user(user_id):
     if not validate_user_id(user_id):
         return jsonify({"error": "Invalid user_id. Must be a positive integer."}), 400
     
+    include_dogs = request.args.get('include_dogs', 'false').lower() == 'true'
+    include_recipes = request.args.get('include_recipes', 'false').lower() == 'true'
+    
     if current_user.is_admin or current_user.id == user_id:
         user = User.query.get_or_404(user_id)
-        return user_schema.jsonify(user)
+        result = user_schema.dump(user)
+        if include_dogs:
+            result['dog_ids'] = [dog.id for dog in user.dogs]
+        if include_recipes:
+            result['recipe_ids'] = [recipe.id for recipe in user.recipes]
+        return jsonify(result)
     else:
         return jsonify({"error": "Unauthorized. You can only view your own profile."}), 403
 
