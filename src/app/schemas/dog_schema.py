@@ -2,6 +2,7 @@ from ..extensions import ma
 from ..models.dog import Dog
 
 class DogSchema(ma.SQLAlchemyAutoSchema):
+    user_id = ma.Integer(allow_none=True)
     class Meta:
         model = Dog
         load_instance = True

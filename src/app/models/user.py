@@ -9,7 +9,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(128))
     is_admin = db.Column(db.Boolean, default=False)
     dogs = db.relationship('Dog', backref='owner', lazy='dynamic')
-    recipes = db.relationship('Recipe', backref='creator', lazy='dynamic')
+    recipes = db.relationship('Recipe', backref='user', lazy='dynamic')
 
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

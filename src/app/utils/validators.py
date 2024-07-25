@@ -1,5 +1,7 @@
 import re
 from datetime import datetime, date
+import bleach
+from email_validator import validate_email as validate_email_format, EmailNotValidError
 
 def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
@@ -54,3 +56,58 @@ def validate_quantity(quantity):
         return quantity_float > 0
     except ValueError:
         return False
+
+def validate_dog_name_or_breed(value):
+    return bool(value) and len(value) <= 50
+
+def validate_profile_image_url(url):
+    return isinstance(url, str) and len(url) <= 255
+
+def validate_recipe_instructions(instructions):
+    return isinstance(instructions, str) and len(instructions) > 0
+
+def validate_recipe_description(description):
+    return isinstance(description, str)
+
+def validate_id_list(id_list):
+    return isinstance(id_list, list) and all(isinstance(id, int) for id in id_list)
+
+def validate_unit(unit):
+    # Unit should be a non-empty string with a maximum length of 20 characters
+    return isinstance(unit, str) and 0 < len(unit) <= 20
+
+def validate_is_public(is_public):
+    return isinstance(is_public, bool)
+
+def validate_ingredient_id(ingredient_id):
+    return isinstance(ingredient_id, int) and ingredient_id > 0
+
+def validate_user_id(user_id):
+    return isinstance(user_id, int) and user_id > 0
+
+def sanitize_string(input_string):
+    return bleach.clean(input_string, strip=True)
+
+def validate_and_sanitize_email(email):
+    try:
+        valid = validate_email_format(email)
+        return valid.email, None
+    except EmailNotValidError as e:
+        return None, str(e)
+
+def validate_date_format(date_string):
+    try:
+        datetime.strptime(date_string, '%Y-%m-%d')
+        return True
+    except ValueError:
+        return False
+
+def validate_url(url):
+    regex = re.compile(
+        r'^(?:http|ftp)s?://'  # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # domain...
+        r'localhost|'  # localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+        r'(?::\d+)?'  # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+    return re.match(regex, url) is not None

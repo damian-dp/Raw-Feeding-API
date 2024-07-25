@@ -2,18 +2,25 @@ from flask import Blueprint
 from ..extensions import db
 from ..models.ingredient import Ingredient
 from ..models import User, Dog, Recipe, Ingredient, RecipeIngredient
+from sqlalchemy.exc import SQLAlchemyError
 
 db_commands = Blueprint("db", __name__)
 
 @db_commands.cli.command("create")
 def create_tables():
-    db.create_all()
-    print("Tables created")
+    try:
+        db.create_all()
+        print("Tables created successfully")
+    except SQLAlchemyError as e:
+        print(f"An error occurred while creating tables: {str(e)}")
 
 @db_commands.cli.command("drop")
 def drop_tables():
-    db.drop_all()
-    print("Tables dropped")
+    try:
+        db.drop_all()
+        print("Tables dropped successfully")
+    except SQLAlchemyError as e:
+        print(f"An error occurred while dropping tables: {str(e)}")
 
 @db_commands.cli.command("seed")
 def seed_tables():
@@ -49,13 +56,17 @@ def seed_tables():
         else:
             print("Admin user not found in the database")
 
-    except Exception as e:
-        print(f"An error occurred during seeding: {str(e)}")
+        print("Database seeded successfully")
+    except SQLAlchemyError as e:
         db.session.rollback()
+        print(f"An error occurred during seeding: {str(e)}")
 
 @db_commands.cli.command("reset")
 def reset_db():
-    db.drop_all()
-    db.create_all()
-    seed_tables()
-    print("Database reset and seeded")
+    try:
+        db.drop_all()
+        db.create_all()
+        seed_tables()
+        print("Database reset and seeded successfully")
+    except SQLAlchemyError as e:
+        print(f"An error occurred while resetting the database: {str(e)}")

@@ -3,6 +3,7 @@ from ..models.recipe_ingredient import RecipeIngredient
 from marshmallow import fields
 
 class RecipeIngredientSchema(ma.SQLAlchemyAutoSchema):
+    recipe_id = fields.Integer(allow_none=True)
     ingredient_name = fields.String(attribute='ingredient.name')
 
     class Meta:

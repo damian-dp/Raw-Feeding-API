@@ -3,31 +3,37 @@ from app import db
 from app.models.dog import Dog
 from ..schemas.dog_schema import dog_schema, dogs_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.utils.validators import validate_date_of_birth, validate_weight
+from app.utils.validators import (
+    validate_date_of_birth, validate_weight, validate_dog_name_or_breed, 
+    validate_profile_image_url, validate_user_id, sanitize_string, validate_date_format, validate_url
+)
 from app.models.user import User
 from app.models.recipe import Recipe
 from datetime import datetime
+from app.utils.route_helpers import admin_required, handle_errors, validate_request_data
 
 bp = Blueprint('dogs', __name__, url_prefix='/dogs')
 
 @bp.route('/', methods=['POST'])
 @jwt_required()
+@handle_errors
+@validate_request_data(dog_schema)
 def create_dog():
     try:
         user_id = get_jwt_identity()
-        name = request.json['name']
-        breed = request.json['breed']
-        date_of_birth_input = request.json['date_of_birth']
-        weight = request.json['weight']
-        profile_image = request.json.get('profile_image')
+        validated_data = request.json
+        validated_data['user_id'] = user_id
 
-        # Handle date_of_birth input
-        if isinstance(date_of_birth_input, str):
-            date_of_birth = datetime.strptime(date_of_birth_input, '%Y-%m-%d').date()
-        elif isinstance(date_of_birth_input, datetime):
-            date_of_birth = date_of_birth_input.date()
-        else:
-            date_of_birth = date_of_birth_input
+        name = sanitize_string(validated_data['name'])
+        breed = sanitize_string(validated_data['breed'])
+        date_of_birth_input = validated_data['date_of_birth']
+        weight = validated_data['weight']
+        profile_image = validated_data.get('profile_image')
+
+        if not validate_date_format(date_of_birth_input):
+            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+
+        date_of_birth = datetime.strptime(date_of_birth_input, '%Y-%m-%d').date()
 
         is_valid_dob, dob_error = validate_date_of_birth(date_of_birth)
         if not is_valid_dob:
@@ -37,6 +43,18 @@ def create_dog():
             return jsonify({
                 "error": "Invalid weight. Weight must be a positive number less than 200 (assuming kg)."
             }), 400
+
+        if not validate_dog_name_or_breed(name):
+            return jsonify({"error": "Invalid dog name. Name must be 1-50 characters long."}), 400
+
+        if not validate_dog_name_or_breed(breed):
+            return jsonify({"error": "Invalid dog breed. Breed must be 1-50 characters long."}), 400
+
+        if profile_image:
+            if not validate_url(profile_image):
+                return jsonify({"error": "Invalid profile image URL."}), 400
+            if not validate_profile_image_url(profile_image):
+                return jsonify({"error": "Invalid profile image URL. Must be a string with max length 255."}), 400
 
         new_dog = Dog(name=name, breed=breed, date_of_birth=date_of_birth, 
                       weight=weight, profile_image=profile_image, user_id=user_id)
@@ -54,24 +72,32 @@ def create_dog():
 
 @bp.route('/', methods=['GET'])
 @jwt_required()
+@handle_errors
 def get_dogs():
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get_or_404(current_user_id)
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get_or_404(current_user_id)
 
-    if current_user.is_admin:
-        dogs = Dog.query.all()
-    else:
-        dogs = Dog.query.filter_by(user_id=current_user_id).all()
+        if current_user.is_admin:
+            dogs = Dog.query.all()
+        else:
+            dogs = Dog.query.filter_by(user_id=current_user_id).all()
 
-    result = dogs_schema.dump(dogs)
-    for dog, dog_data in zip(dogs, result):
-        dog_data['recipes'] = [recipe.id for recipe in dog.recipes]
+        result = dogs_schema.dump(dogs)
+        for dog, dog_data in zip(dogs, result):
+            dog_data['recipes'] = [recipe.id for recipe in dog.recipes]
 
-    return jsonify(result)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
 
 @bp.route('/<int:dog_id>', methods=['GET'])
 @jwt_required()
+@handle_errors
 def get_dog(dog_id):
+    if not validate_user_id(dog_id):
+        return jsonify({"error": "Invalid dog_id. Must be a positive integer."}), 400
+
     current_user_id = get_jwt_identity()
     current_user = User.query.get_or_404(current_user_id)
     dog = Dog.query.get_or_404(dog_id)
@@ -88,7 +114,12 @@ def get_dog(dog_id):
 
 @bp.route('/<int:dog_id>', methods=['PUT', 'PATCH'])
 @jwt_required()
+@handle_errors
+@validate_request_data(dog_schema)
 def update_dog(dog_id):
+    if not validate_user_id(dog_id):
+        return jsonify({"error": "Invalid dog_id. Must be a positive integer."}), 400
+
     current_user_id = get_jwt_identity()
     current_user = User.query.get_or_404(current_user_id)
     dog = Dog.query.get_or_404(dog_id)
@@ -99,45 +130,46 @@ def update_dog(dog_id):
             "message": "You do not have permission to update this dog. You can only update dogs that you own."
         }), 403
 
-    if 'name' in request.json:
-        new_name = request.json['name']
-        if not new_name or len(new_name) > 50:
-            return jsonify({
-                "error": "Invalid dog name. Name must be 1-50 characters long."
-            }), 400
+    validated_data = request.json
+    validated_data['user_id'] = current_user_id
+
+    if 'name' in validated_data:
+        new_name = sanitize_string(validated_data['name'])
+        if not validate_dog_name_or_breed(new_name):
+            return jsonify({"error": "Invalid dog name. Name must be 1-50 characters long."}), 400
         dog.name = new_name
 
-    if 'breed' in request.json:
-        new_breed = request.json['breed']
-        if not new_breed or len(new_breed) > 50:
-            return jsonify({
-                "error": "Invalid dog breed. Breed must be 1-50 characters long."
-            }), 400
+    if 'breed' in validated_data:
+        new_breed = sanitize_string(validated_data['breed'])
+        if not validate_dog_name_or_breed(new_breed):
+            return jsonify({"error": "Invalid dog breed. Breed must be 1-50 characters long."}), 400
         dog.breed = new_breed
 
-    if 'date_of_birth' in request.json:
-        date_of_birth_input = request.json['date_of_birth']
-        if isinstance(date_of_birth_input, str):
-            date_of_birth = datetime.strptime(date_of_birth_input, '%Y-%m-%d').date()
-        elif isinstance(date_of_birth_input, datetime):
-            date_of_birth = date_of_birth_input.date()
-        else:
-            date_of_birth = date_of_birth_input
+    if 'date_of_birth' in validated_data:
+        date_of_birth_input = validated_data['date_of_birth']
+        if not validate_date_format(date_of_birth_input):
+            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+        date_of_birth = datetime.strptime(date_of_birth_input, '%Y-%m-%d').date()
         is_valid_dob, dob_error = validate_date_of_birth(date_of_birth)
         if not is_valid_dob:
             return jsonify({"error": dob_error}), 400
         dog.date_of_birth = date_of_birth
 
-    if 'weight' in request.json:
-        new_weight = request.json['weight']
+    if 'weight' in validated_data:
+        new_weight = validated_data['weight']
         if not validate_weight(new_weight):
             return jsonify({
                 "error": "Invalid weight. Weight must be a positive number less than 200 (assuming kg)."
             }), 400
         dog.weight = new_weight
 
-    if 'profile_image' in request.json:
-        dog.profile_image = request.json['profile_image']
+    if 'profile_image' in validated_data:
+        new_profile_image = validated_data['profile_image']
+        if not validate_url(new_profile_image):
+            return jsonify({"error": "Invalid profile image URL."}), 400
+        if not validate_profile_image_url(new_profile_image):
+            return jsonify({"error": "Invalid profile image URL. Must be a string with max length 255."}), 400
+        dog.profile_image = new_profile_image
 
     db.session.commit()
 
@@ -145,7 +177,11 @@ def update_dog(dog_id):
 
 @bp.route('/<int:dog_id>', methods=['DELETE'])
 @jwt_required()
+@handle_errors
 def delete_dog(dog_id):
+    if not validate_user_id(dog_id):
+        return jsonify({"error": "Invalid dog_id. Must be a positive integer."}), 400
+
     current_user_id = get_jwt_identity()
     current_user = User.query.get_or_404(current_user_id)
     dog = Dog.query.get_or_404(dog_id)

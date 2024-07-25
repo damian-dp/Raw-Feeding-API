@@ -5,11 +5,13 @@ from app.models.ingredient import Ingredient
 from ..schemas.recipe_schema import recipes_schema 
 from ..schemas.ingredient_schema import ingredients_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.utils.route_helpers import handle_errors
 
 bp = Blueprint('search', __name__, url_prefix='/search')
 
 @bp.route('/recipes', methods=['GET'])
 @jwt_required()
+@handle_errors
 def search_recipes():
     current_user_id = get_jwt_identity()
     current_user = User.query.get_or_404(current_user_id)
