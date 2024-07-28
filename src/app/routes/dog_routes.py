@@ -87,22 +87,24 @@ def get_dogs():
         if current_user.is_admin:
             # For admin users, retrieve all dogs
             # This query fetches all Dog records from the database
-            dogs = Dog.query.all()
+            dogs = Dog.query.options(db.joinedload(Dog.recipes)).all()
             if not dogs:
                 return jsonify({"message": "No dogs found. No user has created a dog yet."}), 404
         else:
             # For regular users, retrieve only their dogs
             # This query filters Dog records to only include those owned by the current user
-            dogs = Dog.query.filter_by(user_id=current_user_id).all()
+            dogs = Dog.query.filter_by(user_id=current_user_id).options(db.joinedload(Dog.recipes)).all()
             if not dogs:
                 return jsonify({"message": "No dogs found on your account. You haven't created any dogs yet."}), 404
 
-        result = dogs_schema.dump(dogs)
-        for dog, dog_data in zip(dogs, result):
+        result = []
+        for dog in dogs:
+            dog_data = dog_schema.dump(dog)
             # Query to retrieve recipe IDs for each dog
             # This accesses the 'recipes' relationship of each Dog object
             # It retrieves the IDs of all recipes associated with the dog
             dog_data['recipes'] = [recipe.id for recipe in dog.recipes]
+            result.append(dog_data)
 
         return jsonify(result)
     except Exception as e:

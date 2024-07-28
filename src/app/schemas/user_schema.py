@@ -1,12 +1,11 @@
+from ..extensions import ma
 from ..models.user import User
-from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 
-class UserSchema(SQLAlchemyAutoSchema):
+class UserSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = User
         load_instance = True
         exclude = ('password_hash',)
-        ordered = True
 
 user_schema = UserSchema()
 users_schema = UserSchema(many=True)
