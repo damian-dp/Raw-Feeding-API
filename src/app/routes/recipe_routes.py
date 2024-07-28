@@ -8,12 +8,12 @@ from app.utils.validators import (
     validate_recipe_name, validate_quantity, validate_ingredient_name, 
     validate_recipe_instructions, validate_recipe_description, validate_id_list,
     validate_unit, validate_is_public, validate_ingredient_id, validate_user_id,
-    sanitize_string
+    sanitize_string, validate_ingredients_list
 )
 from app.models.user import User
 from app.models.dog import Dog
 from app.models.ingredient import Ingredient
-from app.utils.route_helpers import admin_required, handle_errors, validate_request_data
+from app.utils.route_helpers import handle_errors, validate_request_data
 
 bp = Blueprint('recipes', __name__, url_prefix='/recipes')
 
@@ -23,6 +23,9 @@ bp = Blueprint('recipes', __name__, url_prefix='/recipes')
 @validate_request_data(recipe_schema)
 def create_recipe():
     user_id = get_jwt_identity()
+    # Query to retrieve the current user
+    # This query fetches the User object for the authenticated user
+    # If the user doesn't exist, it will raise a 404 error
     current_user = User.query.get_or_404(user_id)
     
     # Set the user_id in the validated data
@@ -64,12 +67,11 @@ def create_recipe():
     if not validate_is_public(is_public):
         return jsonify({"error": "is_public must be a boolean value."}), 400
 
-    for ingredient in ingredients:
-        if not validate_ingredient_id(ingredient['ingredient_id']):
-            return jsonify({"error": f"Invalid ingredient_id: {ingredient['ingredient_id']}. Must be a positive integer."}), 400
-        if not validate_unit(ingredient['unit']):
-            return jsonify({"error": f"Invalid unit for ingredient {ingredient['ingredient_id']}. Must be a non-empty string with max length 20."}), 400
+    if not validate_ingredients_list(ingredients):
+        return jsonify({"error": "Invalid ingredients list. Each ingredient must have a valid ingredient_id, quantity, and unit."}), 400
 
+    # Create a new Recipe instance
+    # This creates a new Recipe object in memory, but doesn't save it to the database yet
     new_recipe = Recipe(name=name, description=description, instructions=instructions,
                         is_public=is_public, user_id=user_id)
 
@@ -83,6 +85,9 @@ def create_recipe():
                 "error": f"Invalid quantity for ingredient {ingredient_id}. Quantity must be a positive number."
             }), 400
 
+        # Query to retrieve the ingredient from the database
+        # This query fetches the Ingredient object with the given ID
+        # If the ingredient doesn't exist, db_ingredient will be None
         db_ingredient = Ingredient.query.get(ingredient_id)
         if not db_ingredient:
             return jsonify({
@@ -95,6 +100,8 @@ def create_recipe():
             }), 400
 
         unit = sanitize_string(ingredient['unit'])
+        # Create a new RecipeIngredient instance and append it to the recipe
+        # This creates a new RecipeIngredient object and associates it with the new recipe
         recipe_ingredient = RecipeIngredient(
             ingredient_id=ingredient_id,
             quantity=quantity,
@@ -103,6 +110,9 @@ def create_recipe():
         new_recipe.ingredients.append(recipe_ingredient)
 
     for dog_id in dog_ids:
+        # Query to retrieve the dog from the database
+        # This query fetches the Dog object with the given ID
+        # If the dog doesn't exist, dog will be None
         dog = Dog.query.get(dog_id)
         if not dog:
             return jsonify({"error": f"Dog with id {dog_id} not found"}), 400
@@ -110,6 +120,8 @@ def create_recipe():
             return jsonify({"error": f"You don't have permission to assign dog with id {dog_id} to this recipe"}), 403
         new_recipe.dogs.append(dog)
 
+    # Add the new recipe to the database session and commit the transaction
+    # This saves the new recipe and all its associations to the database
     db.session.add(new_recipe)
     db.session.commit()
 
@@ -121,11 +133,18 @@ def create_recipe():
 def get_recipes():
     try:
         current_user_id = get_jwt_identity()
+        # Query to retrieve the current user
+        # This query fetches the User object for the authenticated user
+        # If the user doesn't exist, it will raise a 404 error
         current_user = User.query.get_or_404(current_user_id)
 
         if current_user.is_admin:
+            # Query to retrieve all recipes for admin users
+            # This query fetches all Recipe objects from the database
             recipes = Recipe.query.all()
         else:
+            # Query to retrieve recipes for non-admin users
+            # This query fetches Recipe objects that are either owned by the current user or are public
             recipes = Recipe.query.filter((Recipe.user_id == current_user_id) | (Recipe.is_public == True)).all()
 
         return recipes_schema.jsonify(recipes)
@@ -137,7 +156,14 @@ def get_recipes():
 @handle_errors
 def get_recipe(recipe_id):
     current_user_id = get_jwt_identity()
+    # Query to retrieve the current user
+    # This query fetches the User object for the authenticated user
+    # If the user doesn't exist, it will raise a 404 error
     current_user = User.query.get_or_404(current_user_id)
+    
+    # Query to retrieve the specific recipe
+    # This query fetches the Recipe object with the given ID
+    # If the recipe doesn't exist, it will raise a 404 error
     recipe = Recipe.query.get_or_404(recipe_id)
 
     if current_user.is_admin:
@@ -156,7 +182,14 @@ def get_recipe(recipe_id):
 @validate_request_data(recipe_schema)
 def update_recipe(recipe_id):
     current_user_id = get_jwt_identity()
+    # Query to retrieve the current user
+    # This query fetches the User object for the authenticated user
+    # If the user doesn't exist, it will raise a 404 error
     current_user = User.query.get_or_404(current_user_id)
+    
+    # Query to retrieve the specific recipe
+    # This query fetches the Recipe object with the given ID
+    # If the recipe doesn't exist, it will raise a 404 error
     recipe = Recipe.query.get_or_404(recipe_id)
 
     if not current_user.is_admin and recipe.user_id != current_user_id:
@@ -196,16 +229,16 @@ def update_recipe(recipe_id):
         # Remove existing ingredients
         recipe.ingredients = []
         # Add new ingredients
+        if not validate_ingredients_list(validated_data['ingredients']):
+            return jsonify({"error": "Invalid ingredients list. Each ingredient must have a valid ingredient_id, quantity, and unit."}), 400
         for ingredient in validated_data['ingredients']:
             ingredient_id = ingredient['ingredient_id']
             quantity = ingredient['quantity']
             unit = ingredient['unit']
 
-            if not validate_quantity(quantity):
-                return jsonify({
-                    "error": f"Invalid quantity for ingredient {ingredient_id}. Quantity must be a positive number."
-                }), 400
-
+            # Query to retrieve the ingredient from the database
+            # This query fetches the Ingredient object with the given ID
+            # If the ingredient doesn't exist, db_ingredient will be None
             db_ingredient = Ingredient.query.get(ingredient_id)
             if not db_ingredient:
                 return jsonify({
@@ -218,6 +251,8 @@ def update_recipe(recipe_id):
                 }), 400
 
             unit = sanitize_string(ingredient['unit'])
+            # Create a new RecipeIngredient instance and append it to the recipe
+            # This creates a new RecipeIngredient object and associates it with the recipe
             recipe_ingredient = RecipeIngredient(
                 ingredient_id=ingredient_id,
                 quantity=quantity,
@@ -233,17 +268,22 @@ def update_recipe(recipe_id):
         recipe.dogs = []
         # Add new dog associations
         for dog_id in new_dog_ids:
+            # Query to retrieve the dog from the database
+            # This query fetches the Dog object with the given ID
+            # If the dog doesn't exist, dog will be None
             dog = Dog.query.get(dog_id)
             if not dog:
                 return jsonify({"error": f"Dog with id {dog_id} not found"}), 400
             if not current_user.is_admin and dog.user_id != current_user_id:
                 return jsonify({"error": f"You don't have permission to assign dog with id {dog_id} to this recipe"}), 403
             recipe.dogs.append(dog)
-    # If no dog_ids are provided, keep the existing associations
 
+    # Commit the changes to the database
+    # This saves all the modifications to the recipe and its associations
     db.session.commit()
 
     # Refresh the recipe object to ensure all relationships are up-to-date
+    # This reloads the recipe object from the database to reflect any changes made during the transaction
     db.session.refresh(recipe)
 
     return recipe_schema.jsonify(recipe), 200
@@ -253,7 +293,14 @@ def update_recipe(recipe_id):
 @handle_errors
 def delete_recipe(recipe_id):
     current_user_id = get_jwt_identity()
+    # Query to retrieve the current user
+    # This query fetches the User object for the authenticated user
+    # If the user doesn't exist, it will raise a 404 error
     current_user = User.query.get_or_404(current_user_id)
+    
+    # Query to retrieve the specific recipe
+    # This query fetches the Recipe object with the given ID
+    # If the recipe doesn't exist, it will raise a 404 error
     recipe = Recipe.query.get_or_404(recipe_id)
 
     if not current_user.is_admin and recipe.user_id != current_user_id:
@@ -262,6 +309,8 @@ def delete_recipe(recipe_id):
             "message": "You do not have permission to delete this recipe. You can only delete your own recipes."
         }), 403
 
+    # Delete the recipe from the database
+    # This removes the recipe and all its associated data (due to cascade delete settings)
     db.session.delete(recipe)
     db.session.commit()
 

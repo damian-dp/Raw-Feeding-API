@@ -1,11 +1,6 @@
 from flask import Flask, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
-from flask_jwt_extended import JWTManager
 from marshmallow.exceptions import ValidationError
 from .extensions import db, ma, jwt
-from .models import User, Dog, Recipe, Ingredient, RecipeIngredient
-import os
 
 def create_app():
     app = Flask(__name__)
@@ -56,5 +51,5 @@ def create_app():
         
         return app
     except Exception as e:
-        print(f"An error occurred during app initialization: {str(e)}")
+        print(f"An error occurred during app initialisation: {str(e)}")
         return None

@@ -43,6 +43,21 @@ def seed_tables():
             Ingredient(name="Broccoli", category="Vegetable", calories=55, protein=3.7, fat=0.6, carbohydrates=11.2),
             Ingredient(name="Salmon", category="Fish", calories=208, protein=20, fat=13, carbohydrates=0),
             Ingredient(name="Sweet Potato", category="Vegetable", calories=86, protein=1.6, fat=0.1, carbohydrates=20),
+            Ingredient(name="Beef Liver", category="Organ Meat", calories=135, protein=20.4, fat=3.6, carbohydrates=3.9),
+            Ingredient(name="Turkey", category="Meat", calories=189, protein=29, fat=7.5, carbohydrates=0),
+            Ingredient(name="Pumpkin", category="Vegetable", calories=26, protein=1, fat=0.1, carbohydrates=6),
+            Ingredient(name="Eggs", category="Protein", calories=143, protein=12.6, fat=9.5, carbohydrates=0.7),
+            Ingredient(name="Green Beans", category="Vegetable", calories=31, protein=1.8, fat=0.2, carbohydrates=7),
+            Ingredient(name="Lamb", category="Meat", calories=294, protein=25, fat=21, carbohydrates=0),
+            Ingredient(name="Chicken Heart", category="Organ Meat", calories=185, protein=26, fat=8.5, carbohydrates=0),
+            Ingredient(name="Quinoa", category="Grain", calories=120, protein=4.4, fat=1.9, carbohydrates=21),
+            Ingredient(name="Blueberries", category="Fruit", calories=57, protein=0.7, fat=0.3, carbohydrates=14),
+            Ingredient(name="Beef Kidney", category="Organ Meat", calories=131, protein=22.6, fat=3.1, carbohydrates=1.8),
+            Ingredient(name="Sardines", category="Fish", calories=208, protein=24.6, fat=11.5, carbohydrates=0),
+            Ingredient(name="Spinach", category="Vegetable", calories=23, protein=2.9, fat=0.4, carbohydrates=3.6),
+            Ingredient(name="Duck", category="Meat", calories=337, protein=19, fat=28.4, carbohydrates=0),
+            Ingredient(name="Carrots", category="Vegetable", calories=41, protein=0.9, fat=0.2, carbohydrates=9.6),
+            Ingredient(name="Beef Tripe", category="Organ Meat", calories=85, protein=12, fat=3.5, carbohydrates=0),
         ]
 
         db.session.add_all(ingredients)

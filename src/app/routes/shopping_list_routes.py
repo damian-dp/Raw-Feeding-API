@@ -1,20 +1,10 @@
 from flask import Blueprint, request, jsonify
-from app import db
 from app.models.recipe import Recipe
-from app.models.ingredient import Ingredient
 from app.models.user import User
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils.route_helpers import handle_errors
 
 bp = Blueprint('shopping_list', __name__, url_prefix='/shopping-list')
-
-
-# To get a shopping list:
-# 1. Make a GET request to /shopping-list/
-# 2. Include JWT token in the Authorization header
-# 3. Add recipe_ids as query parameters, e.g.:
-#    /shopping-list/?recipe_ids=1&recipe_ids=2&recipe_ids=3
-# 4. You can include multiple recipe_ids to combine ingredients from multiple recipes
 
 @bp.route('/', methods=['GET'])
 @jwt_required()
@@ -22,6 +12,9 @@ bp = Blueprint('shopping_list', __name__, url_prefix='/shopping-list')
 def get_shopping_list():
     try:
         current_user_id = get_jwt_identity()
+        # Query to retrieve the current user
+        # This query fetches the User object for the authenticated user
+        # If the user doesn't exist, it will raise a 404 error
         current_user = User.query.get_or_404(current_user_id)
         recipe_ids = request.args.getlist('recipe_ids', type=int)
 
@@ -33,8 +26,17 @@ def get_shopping_list():
 
         # Fetch recipes
         if current_user.is_admin:
+            # Query to retrieve all recipes with IDs in the recipe_ids list for admin users
+            # This query uses the `in_` operator to match multiple IDs
+            # It returns all matching recipes regardless of ownership or public status
             recipes = Recipe.query.filter(Recipe.id.in_(recipe_ids)).all()
         else:
+            # Query to retrieve recipes for non-admin users
+            # This query filters recipes based on three conditions:
+            # 1. The recipe ID is in the provided recipe_ids list
+            # 2. The recipe is owned by the current user OR
+            # 3. The recipe is public
+            # It ensures that users can only access their own recipes or public recipes
             recipes = Recipe.query.filter(
                 Recipe.id.in_(recipe_ids),
                 ((Recipe.user_id == current_user_id) | (Recipe.is_public == True))
@@ -51,7 +53,11 @@ def get_shopping_list():
         # Aggregate ingredients
         shopping_list = {}
         for recipe in recipes:
+            # Iterate through the recipe_ingredient relationship
+            # This accesses the 'ingredients' relationship of each Recipe object
+            # It retrieves all RecipeIngredient objects associated with the recipe
             for recipe_ingredient in recipe.ingredients:
+                # Access the Ingredient object through the RecipeIngredient relationship
                 ingredient = recipe_ingredient.ingredient
                 if ingredient.id in shopping_list:
                     shopping_list[ingredient.id]['quantity'] += recipe_ingredient.quantity

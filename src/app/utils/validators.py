@@ -85,6 +85,9 @@ def validate_ingredient_id(ingredient_id):
 def validate_user_id(user_id):
     return isinstance(user_id, int) and user_id > 0
 
+def validate_is_admin(is_admin):
+    return isinstance(is_admin, bool)
+
 def sanitize_string(input_string):
     return bleach.clean(input_string, strip=True)
 
@@ -111,3 +114,17 @@ def validate_url(url):
         r'(?::\d+)?'  # optional port
         r'(?:/?|[/?]\S+)$', re.IGNORECASE)
     return re.match(regex, url) is not None
+
+def validate_ingredients_list(ingredients):
+    if not isinstance(ingredients, list):
+        return False
+    for ingredient in ingredients:
+        if not isinstance(ingredient, dict):
+            return False
+        if 'ingredient_id' not in ingredient or 'quantity' not in ingredient or 'unit' not in ingredient:
+            return False
+        if not validate_ingredient_id(ingredient['ingredient_id']) or \
+           not validate_quantity(ingredient['quantity']) or \
+           not validate_unit(ingredient['unit']):
+            return False
+    return True

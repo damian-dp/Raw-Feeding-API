@@ -56,9 +56,11 @@ def create_dog():
             if not validate_profile_image_url(profile_image):
                 return jsonify({"error": "Invalid profile image URL. Must be a string with max length 255."}), 400
 
+        # Create a new Dog instance and add it to the database
+        # This query creates a new Dog record in the database with the provided attributes
+        # It associates the dog with the current user and sets its initial properties
         new_dog = Dog(name=name, breed=breed, date_of_birth=date_of_birth, 
                       weight=weight, profile_image=profile_image, user_id=user_id)
-
         db.session.add(new_dog)
         db.session.commit()
 
@@ -76,15 +78,26 @@ def create_dog():
 def get_dogs():
     try:
         current_user_id = get_jwt_identity()
+        # Query to retrieve the current user
+        # This query fetches the User object for the authenticated user
+        # It's used to determine the user's role (admin or regular user)
         current_user = User.query.get_or_404(current_user_id)
 
+        # Query to retrieve dogs based on user role
         if current_user.is_admin:
+            # For admin users, retrieve all dogs
+            # This query fetches all Dog records from the database
             dogs = Dog.query.all()
         else:
+            # For regular users, retrieve only their dogs
+            # This query filters Dog records to only include those owned by the current user
             dogs = Dog.query.filter_by(user_id=current_user_id).all()
 
         result = dogs_schema.dump(dogs)
         for dog, dog_data in zip(dogs, result):
+            # Query to retrieve recipe IDs for each dog
+            # This accesses the 'recipes' relationship of each Dog object
+            # It retrieves the IDs of all recipes associated with the dog
             dog_data['recipes'] = [recipe.id for recipe in dog.recipes]
 
         return jsonify(result)
@@ -99,11 +112,21 @@ def get_dog(dog_id):
         return jsonify({"error": "Invalid dog_id. Must be a positive integer."}), 400
 
     current_user_id = get_jwt_identity()
+    # Query to retrieve the current user
+    # This query fetches the User object for the authenticated user
+    # It's used to check if the user is an admin or the owner of the requested dog
     current_user = User.query.get_or_404(current_user_id)
+    
+    # Query to retrieve the specific dog
+    # This query fetches a single Dog record by its ID
+    # If the dog doesn't exist, it will raise a 404 error
     dog = Dog.query.get_or_404(dog_id)
 
     if current_user.is_admin or dog.user_id == current_user_id:
         result = dog_schema.dump(dog)
+        # Query to retrieve recipe IDs for the dog
+        # This accesses the 'recipes' relationship of the Dog object
+        # It retrieves the IDs of all recipes associated with the dog
         result['recipes'] = [recipe.id for recipe in dog.recipes]
         return jsonify(result)
     else:
@@ -121,7 +144,14 @@ def update_dog(dog_id):
         return jsonify({"error": "Invalid dog_id. Must be a positive integer."}), 400
 
     current_user_id = get_jwt_identity()
+    # Query to retrieve the current user
+    # This query fetches the User object for the authenticated user
+    # It's used to check if the user is an admin or the owner of the dog being updated
     current_user = User.query.get_or_404(current_user_id)
+    
+    # Query to retrieve the specific dog
+    # This query fetches a single Dog record by its ID
+    # If the dog doesn't exist, it will raise a 404 error
     dog = Dog.query.get_or_404(dog_id)
 
     if not current_user.is_admin and dog.user_id != current_user_id:
@@ -171,6 +201,9 @@ def update_dog(dog_id):
             return jsonify({"error": "Invalid profile image URL. Must be a string with max length 255."}), 400
         dog.profile_image = new_profile_image
 
+    # Commit the changes to the database
+    # This operation saves all the changes made to the dog object
+    # It updates the corresponding record in the database with the new values
     db.session.commit()
 
     return dog_schema.jsonify(dog), 200
@@ -183,10 +216,20 @@ def delete_dog(dog_id):
         return jsonify({"error": "Invalid dog_id. Must be a positive integer."}), 400
 
     current_user_id = get_jwt_identity()
+    # Query to retrieve the current user
+    # This query fetches the User object for the authenticated user
+    # It's used to check if the user is an admin or the owner of the dog being deleted
     current_user = User.query.get_or_404(current_user_id)
+    
+    # Query to retrieve the specific dog
+    # This query fetches a single Dog record by its ID
+    # If the dog doesn't exist, it will raise a 404 error
     dog = Dog.query.get_or_404(dog_id)
 
     if current_user.is_admin or dog.user_id == current_user_id:
+        # Delete the dog from the database
+        # This operation removes the Dog record from the database
+        # It also removes any associated data due to cascade delete settings
         db.session.delete(dog)
         db.session.commit()
         return jsonify({"msg": "Dog deleted"}), 200

@@ -12,5 +12,7 @@ class Ingredient(db.Model):
     vitamins = db.Column(db.JSON)
     minerals = db.Column(db.JSON)
 
-    # Relationships
+    # Relationship: One-to-Many with RecipeIngredient model
+    # This relationship allows easy access to all recipes that use this ingredient
+    # The 'cascade' parameter ensures that when an ingredient is deleted, its associations are also deleted
     recipe_ingredients = db.relationship('RecipeIngredient', back_populates='ingredient', cascade="all, delete-orphan")

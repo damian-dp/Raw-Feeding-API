@@ -13,7 +13,7 @@ class RecipeSchema(ma.SQLAlchemyAutoSchema):
         load_instance = True
         include_fk = True
         include_relationships = True
-        exclude = ('dogs','user')  # Exclude the 'dogs' relationship from serialization
+        exclude = ('dogs','user')  # Exclude 'dogs' and 'user' relationships from serialization
 
 recipe_schema = RecipeSchema()
 recipes_schema = RecipeSchema(many=True)

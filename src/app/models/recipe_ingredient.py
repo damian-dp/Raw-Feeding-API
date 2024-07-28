@@ -7,8 +7,12 @@ class RecipeIngredient(db.Model):
     quantity = db.Column(db.Float, nullable=False)
     unit = db.Column(db.String(20), nullable=False)
 
-    # Relationships
+    # Relationship: Many-to-One with Recipe model
+    # This relationship allows easy access to the recipe this ingredient belongs to
     recipe = db.relationship('Recipe', back_populates='ingredients')
+
+    # Relationship: Many-to-One with Ingredient model
+    # This relationship allows easy access to the ingredient details
     ingredient = db.relationship('Ingredient', back_populates='recipe_ingredients')
 
     def __repr__(self):
