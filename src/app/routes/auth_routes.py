@@ -11,7 +11,7 @@ bp = Blueprint('auth', __name__, url_prefix='/auth')
 @handle_errors
 def login():
     try:
-        username = request.json.get('username')
+        username = sanitize_string(request.json.get('username'))
         password = request.json.get('password')
 
         if not username or not password:
@@ -30,7 +30,6 @@ def login():
 
 @bp.route('/register', methods=['POST'])
 @handle_errors
-@validate_request_data(user_schema)
 def register():
     try:
         username = sanitize_string(request.json.get('username'))
@@ -64,7 +63,7 @@ def register():
         new_user.is_admin = is_admin
         db.session.commit()
 
-        return user_schema.jsonify(new_user), 201
+        return jsonify(user_schema.dump(new_user)), 201
     except sqlalchemy.exc.IntegrityError as e:
         db.session.rollback()
         # Handle database integrity errors (e.g., unique constraint violations)

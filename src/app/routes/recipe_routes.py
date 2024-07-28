@@ -20,9 +20,10 @@ bp = Blueprint('recipes', __name__, url_prefix='/recipes')
 @bp.route('/', methods=['POST'])
 @jwt_required()
 @handle_errors
-@validate_request_data(recipe_schema)
 def create_recipe():
     user_id = get_jwt_identity()
+    if not validate_user_id(user_id):
+        return jsonify({"error": "Invalid user_id. Must be a positive integer."}), 400
     # Query to retrieve the current user
     # This query fetches the User object for the authenticated user
     # If the user doesn't exist, it will raise a 404 error
@@ -80,6 +81,16 @@ def create_recipe():
         quantity = ingredient['quantity']
         unit = ingredient['unit']
 
+        if not validate_ingredient_id(ingredient_id):
+            return jsonify({
+                "error": f"Invalid ingredient_id: {ingredient_id}. Must be a positive integer."
+            }), 400
+
+        if not validate_unit(unit):
+            return jsonify({
+                "error": f"Invalid unit for ingredient {ingredient_id}. Must be a valid unit of measurement."
+            }), 400
+
         if not validate_quantity(quantity):
             return jsonify({
                 "error": f"Invalid quantity for ingredient {ingredient_id}. Quantity must be a positive number."
@@ -125,7 +136,7 @@ def create_recipe():
     db.session.add(new_recipe)
     db.session.commit()
 
-    return recipe_schema.jsonify(new_recipe), 201
+    return jsonify(recipe_schema.dump(new_recipe)), 201
 
 @bp.route('/', methods=['GET'])
 @jwt_required()
@@ -147,7 +158,10 @@ def get_recipes():
             # This query fetches Recipe objects that are either owned by the current user or are public
             recipes = Recipe.query.filter((Recipe.user_id == current_user_id) | (Recipe.is_public == True)).all()
 
-        return recipes_schema.jsonify(recipes)
+        if not recipes:
+            return jsonify({"message": "No recipes found. You have no recipes, and there are no public recipes available."}), 404
+
+        return jsonify(recipes_schema.dump(recipes))
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
 
@@ -167,9 +181,9 @@ def get_recipe(recipe_id):
     recipe = Recipe.query.get_or_404(recipe_id)
 
     if current_user.is_admin:
-        return recipe_schema.jsonify(recipe)
+        return jsonify(recipe_schema.dump(recipe))
     elif recipe.user_id == current_user_id or recipe.is_public:
-        return recipe_schema.jsonify(recipe)
+        return jsonify(recipe_schema.dump(recipe))
     else:
         return jsonify({
             "error": "Access denied",
@@ -179,9 +193,10 @@ def get_recipe(recipe_id):
 @bp.route('/<int:recipe_id>', methods=['PUT', 'PATCH'])
 @jwt_required()
 @handle_errors
-@validate_request_data(recipe_schema)
 def update_recipe(recipe_id):
     current_user_id = get_jwt_identity()
+    if not validate_user_id(current_user_id):
+        return jsonify({"error": "Invalid user_id. Must be a positive integer."}), 400
     # Query to retrieve the current user
     # This query fetches the User object for the authenticated user
     # If the user doesn't exist, it will raise a 404 error
@@ -236,6 +251,21 @@ def update_recipe(recipe_id):
             quantity = ingredient['quantity']
             unit = ingredient['unit']
 
+            if not validate_ingredient_id(ingredient_id):
+                return jsonify({
+                    "error": f"Invalid ingredient_id: {ingredient_id}. Must be a positive integer."
+                }), 400
+
+            if not validate_unit(unit):
+                return jsonify({
+                    "error": f"Invalid unit for ingredient {ingredient_id}. Must be a valid unit of measurement."
+                }), 400
+
+            if not validate_quantity(quantity):
+                return jsonify({
+                    "error": f"Invalid quantity for ingredient {ingredient_id}. Quantity must be a positive number."
+                }), 400
+
             # Query to retrieve the ingredient from the database
             # This query fetches the Ingredient object with the given ID
             # If the ingredient doesn't exist, db_ingredient will be None
@@ -286,7 +316,7 @@ def update_recipe(recipe_id):
     # This reloads the recipe object from the database to reflect any changes made during the transaction
     db.session.refresh(recipe)
 
-    return recipe_schema.jsonify(recipe), 200
+    return jsonify(recipe_schema.dump(recipe)), 200
 
 @bp.route('/<int:recipe_id>', methods=['DELETE'])
 @jwt_required()

@@ -4,5 +4,6 @@ from flask_jwt_extended import JWTManager
 
 db = SQLAlchemy()
 ma = Marshmallow()
-ma.Schema.Meta.ordered = True
 jwt = JWTManager()
+
+ma.Schema.Meta.ordered = True

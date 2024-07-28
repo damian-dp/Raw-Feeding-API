@@ -8,19 +8,19 @@ from app.utils.validators import (
     validate_profile_image_url, validate_user_id, sanitize_string, validate_date_format, validate_url
 )
 from app.models.user import User
-from app.models.recipe import Recipe
 from datetime import datetime
-from app.utils.route_helpers import admin_required, handle_errors, validate_request_data
+from app.utils.route_helpers import handle_errors, validate_request_data
 
 bp = Blueprint('dogs', __name__, url_prefix='/dogs')
 
 @bp.route('/', methods=['POST'])
 @jwt_required()
 @handle_errors
-@validate_request_data(dog_schema)
 def create_dog():
     try:
         user_id = get_jwt_identity()
+        if not validate_user_id(user_id):
+            return jsonify({"error": "Invalid user_id. Must be a positive integer."}), 400
         validated_data = request.json
         validated_data['user_id'] = user_id
 
@@ -88,10 +88,14 @@ def get_dogs():
             # For admin users, retrieve all dogs
             # This query fetches all Dog records from the database
             dogs = Dog.query.all()
+            if not dogs:
+                return jsonify({"message": "No dogs found. No user has created a dog yet."}), 404
         else:
             # For regular users, retrieve only their dogs
             # This query filters Dog records to only include those owned by the current user
             dogs = Dog.query.filter_by(user_id=current_user_id).all()
+            if not dogs:
+                return jsonify({"message": "No dogs found on your account. You haven't created any dogs yet."}), 404
 
         result = dogs_schema.dump(dogs)
         for dog, dog_data in zip(dogs, result):
@@ -138,7 +142,6 @@ def get_dog(dog_id):
 @bp.route('/<int:dog_id>', methods=['PUT', 'PATCH'])
 @jwt_required()
 @handle_errors
-@validate_request_data(dog_schema)
 def update_dog(dog_id):
     if not validate_user_id(dog_id):
         return jsonify({"error": "Invalid dog_id. Must be a positive integer."}), 400
@@ -206,7 +209,7 @@ def update_dog(dog_id):
     # It updates the corresponding record in the database with the new values
     db.session.commit()
 
-    return dog_schema.jsonify(dog), 200
+    return jsonify(dog_schema.dump(dog)), 200
 
 @bp.route('/<int:dog_id>', methods=['DELETE'])
 @jwt_required()
@@ -222,15 +225,19 @@ def delete_dog(dog_id):
     current_user = User.query.get_or_404(current_user_id)
     
     # Query to retrieve the specific dog
-    # This query fetches a single Dog record by its ID
-    # If the dog doesn't exist, it will raise a 404 error
-    dog = Dog.query.get_or_404(dog_id)
+    # This query attempts to fetch a single Dog record by its ID
+    # If the dog doesn't exist, it will return None
+    dog = Dog.query.get(dog_id)
+    if not dog:
+        return jsonify({"error": "Dog not found", "message": "The specified dog does not exist or has already been deleted."}), 404
 
     if current_user.is_admin or dog.user_id == current_user_id:
-        # Delete the dog from the database
-        # This operation removes the Dog record from the database
-        # It also removes any associated data due to cascade delete settings
+        # Delete operation
+        # This removes the dog object from the database session
+        # The actual deletion from the database occurs when the session is committed
         db.session.delete(dog)
+        # Commit the changes to the database
+        # This operation permanently removes the dog record from the database
         db.session.commit()
         return jsonify({"msg": "Dog deleted"}), 200
     else:

@@ -2,6 +2,8 @@ from flask import Blueprint, jsonify
 from app.models.ingredient import Ingredient
 from ..schemas.ingredient_schema import ingredient_schema, ingredients_schema
 from app.utils.route_helpers import handle_errors
+from app.utils.validators import validate_ingredient_id
+from app.utils.route_helpers import validate_request_data
 
 bp = Blueprint('ingredients', __name__, url_prefix='/ingredients')
 
@@ -17,13 +19,16 @@ def get_ingredients():
 
         # Serialize the ingredients using the ingredients_schema
         # This converts the SQLAlchemy objects into a JSON-serializable format
-        return ingredients_schema.jsonify(ingredients)
+        return jsonify(ingredients_schema.dump(ingredients))
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
 
 @bp.route('/<int:ingredient_id>', methods=['GET'])
 @handle_errors
 def get_ingredient(ingredient_id):
+    if not validate_ingredient_id(ingredient_id):
+        return jsonify({"error": "Invalid ingredient_id. Must be a positive integer."}), 400
+
     try:
         # Query to retrieve a specific ingredient by its ID
         # This query attempts to fetch a single Ingredient record using the provided ingredient_id
@@ -33,6 +38,6 @@ def get_ingredient(ingredient_id):
 
         # Serialize the single ingredient using the ingredient_schema
         # This converts the SQLAlchemy object into a JSON-serializable format
-        return ingredient_schema.jsonify(ingredient)
+        return jsonify(ingredient_schema.dump(ingredient))
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500

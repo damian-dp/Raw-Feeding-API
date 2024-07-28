@@ -6,6 +6,7 @@ from ..schemas.recipe_schema import recipes_schema
 from ..schemas.ingredient_schema import ingredients_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils.route_helpers import handle_errors
+from app.utils.validators import validate_user_id, validate_ingredient_id
 
 bp = Blueprint('search', __name__, url_prefix='/search')
 
@@ -14,6 +15,8 @@ bp = Blueprint('search', __name__, url_prefix='/search')
 @handle_errors
 def search_recipes():
     current_user_id = get_jwt_identity()
+    if not validate_user_id(current_user_id):
+        return jsonify({"error": "Invalid user_id. Must be a positive integer."}), 400
     # Query to retrieve the current user
     # This query fetches the User object for the authenticated user
     # If the user doesn't exist, it will raise a 404 error
@@ -51,7 +54,7 @@ def search_recipes():
             "details": "Your search did not match any recipes. Try different keywords or check your permissions."
         }), 404
 
-    return recipes_schema.jsonify(recipes)
+    return jsonify(recipes_schema.dump(recipes))
 
 @bp.route('/ingredients', methods=['GET'])
 @handle_errors
@@ -73,13 +76,15 @@ def search_ingredients():
     # Execute the query and retrieve all matching ingredients
     ingredients = ingredients_query.all()
     
-    return ingredients_schema.jsonify(ingredients)
+    return jsonify(ingredients_schema.dump(ingredients))
 
 @bp.route('/recipes/by_ingredient', methods=['GET'])
 @jwt_required()
 @handle_errors
 def search_recipes_by_ingredient():
     current_user_id = get_jwt_identity()
+    if not validate_user_id(current_user_id):
+        return jsonify({"error": "Invalid user_id. Must be a positive integer."}), 400
     # Query to retrieve the current user
     # This query fetches the User object for the authenticated user
     # If the user doesn't exist, it will raise a 404 error
@@ -95,12 +100,10 @@ def search_recipes_by_ingredient():
             "message": "Ingredient ID is required. Please provide an 'ingredient_id' parameter in your request."
         }), 400
     
-    try:
-        ingredient_id = int(ingredient_id)
-    except ValueError:
+    if not validate_ingredient_id(ingredient_id):
         return jsonify({
-            "error": "Invalid parameter",
-            "message": "The provided ingredient_id must be a valid integer."
+            "error": "Invalid ingredient_id",
+            "message": "The provided ingredient_id must be a positive integer."
         }), 400
 
     if current_user.is_admin:
@@ -125,4 +128,4 @@ def search_recipes_by_ingredient():
             "details": "No recipes were found with the specified ingredient. This could be because the ingredient doesn't exist, or you don't have permission to view recipes using this ingredient."
         }), 404
 
-    return recipes_schema.jsonify(recipes)
+    return jsonify(recipes_schema.dump(recipes))

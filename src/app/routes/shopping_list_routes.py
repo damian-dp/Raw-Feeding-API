@@ -3,6 +3,7 @@ from app.models.recipe import Recipe
 from app.models.user import User
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils.route_helpers import handle_errors
+from app.utils.validators import validate_user_id, validate_id_list, validate_ingredient_id, validate_quantity
 
 bp = Blueprint('shopping_list', __name__, url_prefix='/shopping-list')
 
@@ -12,6 +13,8 @@ bp = Blueprint('shopping_list', __name__, url_prefix='/shopping-list')
 def get_shopping_list():
     try:
         current_user_id = get_jwt_identity()
+        if not validate_user_id(current_user_id):
+            return jsonify({"error": "Invalid user_id. Must be a positive integer."}), 400
         # Query to retrieve the current user
         # This query fetches the User object for the authenticated user
         # If the user doesn't exist, it will raise a 404 error
@@ -22,6 +25,11 @@ def get_shopping_list():
             return jsonify({
                 "error": "Missing data",
                 "message": "No recipes provided. Please include at least one recipe ID in the 'recipe_ids' query parameter."
+            }), 400
+
+        if not validate_id_list(recipe_ids):
+            return jsonify({
+                "error": "Invalid recipe_ids. Must be a non-empty list of integers."
             }), 400
 
         # Fetch recipes
@@ -59,9 +67,22 @@ def get_shopping_list():
             for recipe_ingredient in recipe.ingredients:
                 # Access the Ingredient object through the RecipeIngredient relationship
                 ingredient = recipe_ingredient.ingredient
+                if not validate_ingredient_id(ingredient.id):
+                    return jsonify({
+                        "error": f"Invalid ingredient_id: {ingredient.id}. Must be a positive integer."
+                    }), 400
                 if ingredient.id in shopping_list:
-                    shopping_list[ingredient.id]['quantity'] += recipe_ingredient.quantity
+                    new_quantity = shopping_list[ingredient.id]['quantity'] + recipe_ingredient.quantity
+                    if not validate_quantity(new_quantity):
+                        return jsonify({
+                            "error": f"Invalid quantity for ingredient {ingredient.id}. Quantity must be a positive number."
+                        }), 400
+                    shopping_list[ingredient.id]['quantity'] = new_quantity
                 else:
+                    if not validate_quantity(recipe_ingredient.quantity):
+                        return jsonify({
+                            "error": f"Invalid quantity for ingredient {ingredient.id}. Quantity must be a positive number."
+                        }), 400
                     shopping_list[ingredient.id] = {
                         'name': ingredient.name,
                         'quantity': recipe_ingredient.quantity,

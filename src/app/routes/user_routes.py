@@ -3,8 +3,7 @@ from app import db
 from app.models.user import User
 from ..schemas.user_schema import user_schema, users_schema
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.utils.validators import validate_email, validate_password, validate_username, validate_user_id, sanitize_string, validate_is_admin
-from app.models.dog import Dog
+from app.utils.validators import validate_password, validate_username, validate_user_id, sanitize_string, validate_is_admin, validate_and_sanitize_email, validate_url
 from app.utils.route_helpers import handle_errors, validate_request_data
 
 bp = Blueprint('users', __name__, url_prefix='/users')
@@ -91,7 +90,6 @@ def get_user(user_id):
 @bp.route('/<int:user_id>', methods=['PUT', 'PATCH'])
 @jwt_required()
 @handle_errors
-@validate_request_data(user_schema)
 def update_user(user_id):
     current_user_id = get_jwt_identity()
     # Query to retrieve the current user
@@ -121,11 +119,9 @@ def update_user(user_id):
         user_to_update.username = new_username
 
     if 'email' in validated_data:
-        new_email = sanitize_string(validated_data['email'])
-        if not validate_email(new_email):
-            return jsonify({
-                "error": "Invalid email address. Please provide a valid email format."
-            }), 400
+        new_email, error = validate_and_sanitize_email(validated_data['email'])
+        if error:
+            return jsonify({"error": f"Invalid email address: {error}"}), 400
         user_to_update.email = new_email
 
     if 'password' in validated_data:
@@ -144,14 +140,20 @@ def update_user(user_id):
         else:
             return jsonify({"error": "Unauthorized. Only admins can update the admin status."}), 403
 
+    if 'profile_picture_url' in validated_data:
+        if not validate_url(validated_data['profile_picture_url']):
+            return jsonify({"error": "Invalid URL for profile picture."}), 400
+        user_to_update.profile_picture_url = validated_data['profile_picture_url']
+
     # Commit the changes to the database
     # This saves all the modifications to the user_to_update object
     db.session.commit()
 
-    return user_schema.jsonify(user_to_update)
+    return jsonify(user_schema.dump(user_to_update))
 
 @bp.route('/<int:user_id>', methods=['DELETE'])
 @jwt_required()
+@handle_errors
 def delete_user(user_id):
     current_user_id = get_jwt_identity()
     # Query to retrieve the current user

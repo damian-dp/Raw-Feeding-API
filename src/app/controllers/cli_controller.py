@@ -1,7 +1,7 @@
 from flask import Blueprint
 from ..extensions import db
 from ..models.ingredient import Ingredient
-from ..models import User, Dog, Recipe, Ingredient, RecipeIngredient
+from ..models import User, Dog, Recipe, Ingredient
 from sqlalchemy.exc import SQLAlchemyError
 
 db_commands = Blueprint("db", __name__)
